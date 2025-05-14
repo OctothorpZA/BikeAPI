@@ -20,7 +20,9 @@ class TeamInvitation extends JetstreamTeamInvitation
 
     /**
      * Get the team that the invitation belongs to.
-     */
+    *
+    * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\Team, \App\Models\TeamInvitation>
+    */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Jetstream::teamModel());
