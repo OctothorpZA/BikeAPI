@@ -1,29 +1,32 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "oitws/bike_api",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "Dock & Ride (Conceptual Backend)",
     "keywords": [
         "laravel",
         "framework"
     ],
-    "license": "MIT",
+    "license": [
+        "proprietary",
+        "MIT"
+    ],
     "require": {
-        "php": "^8.2",
-        "laravel/framework": "^12.0",
+        "php": "^8.4",
+        "laravel/framework": "^12.14.1",
         "laravel/tinker": "^2.10.1",
-        "livewire/flux": "^2.1.1",
-        "livewire/volt": "^1.7.0"
+        "livewire/flux": "^2.1.6",
+        "livewire/volt": "^1.7.1"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.23",
+        "fakerphp/faker": "^1.24.1",
         "laravel/pail": "^1.2.2",
-        "laravel/pint": "^1.18",
-        "laravel/sail": "^1.41",
-        "mockery/mockery": "^1.6",
-        "nunomaduro/collision": "^8.6",
-        "pestphp/pest": "^3.8",
-        "pestphp/pest-plugin-laravel": "^3.2"
+        "laravel/pint": "^1.22.1",
+        "laravel/sail": "^1.43.0",
+        "mockery/mockery": "^1.6.12",
+        "nunomaduro/collision": "^8.8.0",
+        "pestphp/pest": "^3.8.2",
+        "pestphp/pest-plugin-laravel": "^3.2.0"
     },
     "autoload": {
         "psr-4": {
@@ -77,5 +80,19 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "authors": [
+        {
+            "name": "Mansoer Gallie",
+            "email": "dev@octothorp.co.za",
+            "homepage": "https://octothorp.co.za",
+            "role": "System Architect"
+        },
+        {
+            "name": "JJ Adams",
+            "email": "info@willitearn.com",
+            "homepage": "https://willitearn.com",
+            "role": "Snr. Developer"
+        }
+    ]
 }
