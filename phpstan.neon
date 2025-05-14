@@ -1,0 +1,38 @@
+# phpstan.neon
+
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+        # - routes/
+        # - tests/
+
+    # Level 5 is a good starting point.
+    # You can increase the level for more strict analysis.
+    level: 5
+
+    # Optional: Exclude paths if needed
+    # excludePaths:
+    #     - app/Nova/* # Example
+    #     - app/Http/Middleware/RedirectIfAuthenticated.php
+
+    ignoreErrors:
+        # For Models/Team.php - teamInvitations()
+        # This pattern precisely matches the error message, with \$this and escaped .
+        -
+            message: '#Method App\\Models\\Team::teamInvitations\(\) should return Illuminate\\Database\\Eloquent\\Relations\\HasMany<Laravel\\Jetstream\\TeamInvitation, App\\Models\\Team> but returns Illuminate\\Database\\Eloquent\\Relations\\HasMany<Illuminate\\Database\\Eloquent\\Model, \$this\(App\\Models\\Team\)>\.#'
+            path: app/Models/Team.php
+
+        # For Models/Team.php - owner()
+        # This pattern precisely matches the error message, with \$this and escaped .
+        -
+            message: '#Method App\\Models\\Team::owner\(\) should return Illuminate\\Database\\Eloquent\\Relations\\BelongsTo<App\\Models\\User, App\\Models\\Team> but returns Illuminate\\Database\\Eloquent\\Relations\\BelongsTo<Illuminate\\Database\\Eloquent\\Model, \$this\(App\\Models\\Team\)>\.#'
+            path: app/Models/Team.php
+
+        # If the CreateTeam.php error reappears, you might need to add its specific message here.
+        # Example (adjust message if needed):
+        # -
+        #    message: '#Method App\\Actions\\Jetstream\\CreateTeam::create\(\) should return App\\Models\\Team but returns Illuminate\\Database\\Eloquent\\Model\.#'
+        #    path: app/Actions/Jetstream/CreateTeam.php

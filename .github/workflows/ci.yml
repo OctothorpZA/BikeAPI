@@ -1,0 +1,76 @@
+# .github/workflows/ci.yml
+
+name: Dock & Ride CI
+
+on:
+  push:
+    branches: [ "main", "develop" ] # Adjust to your main development branches
+  pull_request:
+    branches: [ "main", "develop" ] # Adjust to your main development branches
+
+jobs:
+  build-and-test: # A single job to build, lint, analyse, and test
+    runs-on: ubuntu-latest
+    # environment: Testing # You can uncomment this if you use GitHub Environments for secrets/rules
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4' # Matching your composer.json and other workflows
+          extensions: mbstring, dom, fileinfo, pdo, pdo_sqlite, pdo_pgsql, bcmath, redis, gd, zip # Added gd, zip as common Laravel extensions
+          ini-values: post_max_size=256M, upload_max_filesize=256M, memory_limit=512M
+          coverage: none # Can be 'xdebug' or 'pcov' if you want coverage reports later
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Or '22' as in your tests.yml, or 'lts/*'
+          cache: 'npm'
+
+      # Get Composer cache directory
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      # Cache Composer dependencies
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      # Add Flux Credentials (from your lint.yml and tests.yml)
+      # Ensure FLUX_USERNAME and FLUX_LICENSE_KEY are set as secrets in your GitHub repository settings
+      - name: Add Flux Credentials
+        if: secrets.FLUX_USERNAME && secrets.FLUX_LICENSE_KEY
+        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install NPM dependencies
+        run: npm ci # 'ci' is generally recommended for CI environments over 'install'
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Setup .env file
+        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Run Laravel Pint (Code Style Check)
+        run: ./vendor/bin/pint --test # Fails if style issues are found
+
+      - name: Run PHPStan (Static Analysis)
+        run: ./vendor/bin/phpstan analyse -c phpstan.neon --memory-limit=2G
+
+      - name: Run Pest tests
+        run: php artisan test --parallel # Using parallel for speed
