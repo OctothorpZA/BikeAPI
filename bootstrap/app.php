@@ -13,8 +13,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Add your global middleware here
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
-    })->create();
+        // Configure exception handling
+    })
+    ->withProviders([ // <--- ADD OR MODIFY THIS SECTION
+        App\Providers\AppServiceProvider::class, // Default AppServiceProvider
+        App\Providers\AuthServiceProvider::class, // <<<< REGISTER YOUR AuthServiceProvider HERE
+        App\Providers\VoltServiceProvider::class, // If you have VoltServiceProvider registered here
+        // Add other custom providers if any
+        // Jetstream and Fortify providers are often auto-discovered or registered by their packages
+    ])
+    ->create();
