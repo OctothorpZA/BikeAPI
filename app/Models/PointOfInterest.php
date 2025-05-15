@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property int|null $team_id
  * @property string $name
- * @property string $category
+ * @property string $category // Ensure this is in $fillable
  * @property string|null $description
  * @property float $latitude
  * @property float $longitude
@@ -72,6 +72,13 @@ class PointOfInterest extends Model
 {
     use HasFactory, SoftDeletes;
 
+    // Define constants for category types for easier reference and consistency
+    public const CATEGORY_DEPOT = 'Depot';
+    public const CATEGORY_STAFF_PICK = 'Staff Pick';
+    public const CATEGORY_GENERAL = 'General'; // Your default in the migration
+    // Add more as needed, e.g., 'API Sourced', 'Landmark', 'Attraction' etc.
+
+
     /**
      * The attributes that are mass assignable.
      *
@@ -80,7 +87,7 @@ class PointOfInterest extends Model
     protected $fillable = [
         'team_id',
         'name',
-        'category',
+        'category', // This was already in your $fillable, which is correct!
         'description',
         'latitude',
         'longitude',
@@ -109,9 +116,12 @@ class PointOfInterest extends Model
         'longitude' => 'decimal:7',
         'is_approved' => 'boolean',
         'is_active' => 'boolean',
-        'team_id' => 'integer',
-        'created_by_user_id' => 'integer',
-        'approved_by_user_id' => 'integer',
+        'team_id' => 'integer', // Your existing cast
+        'created_by_user_id' => 'integer', // Your existing cast
+        'approved_by_user_id' => 'integer', // Your existing cast
+        'created_at' => 'datetime', // Adding this for consistency, though often default
+        'updated_at' => 'datetime', // Adding this for consistency, though often default
+        'deleted_at' => 'datetime', // Standard for SoftDeletes
     ];
 
     /**
@@ -129,7 +139,7 @@ class PointOfInterest extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, \App\Models\PointOfInterest>
      */
-    public function createdByUser(): BelongsTo
+    public function createdByUser(): BelongsTo // Using your preferred relationship name
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
@@ -139,7 +149,7 @@ class PointOfInterest extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, \App\Models\PointOfInterest>
      */
-    public function approvedByUser(): BelongsTo
+    public function approvedByUser(): BelongsTo // Using your preferred relationship name
     {
         return $this->belongsTo(User::class, 'approved_by_user_id');
     }

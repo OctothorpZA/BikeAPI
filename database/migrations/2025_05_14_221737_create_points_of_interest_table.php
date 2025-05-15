@@ -19,7 +19,7 @@ return new class extends Migration
             $table->foreignId('team_id')->nullable()->constrained('teams')->onDelete('cascade');
 
             $table->string('name');
-            $table->string('category'); // e.g., 'Depot', 'Cafe', 'Landmark', 'Viewpoint', 'Repair Station'
+            $table->string('category')->default('General')->after('team_id'); // e.g., 'Depot', 'Cafe', 'Landmark', 'Viewpoint', 'Repair Station'
 
             $table->text('description')->nullable();
 

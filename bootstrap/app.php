@@ -13,16 +13,28 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Add your global middleware here
+        // This is where you would register global middleware.
+        // Example: $middleware->append(MyGlobalMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Configure exception handling
+        // This is where you configure custom exception handling.
+        // Example: $exceptions->dontReport(SpecificException::class);
     })
-    ->withProviders([ // <--- ADD OR MODIFY THIS SECTION
-        App\Providers\AppServiceProvider::class, // Default AppServiceProvider
-        App\Providers\AuthServiceProvider::class, // <<<< REGISTER YOUR AuthServiceProvider HERE
-        App\Providers\VoltServiceProvider::class, // If you have VoltServiceProvider registered here
-        // Add other custom providers if any
-        // Jetstream and Fortify providers are often auto-discovered or registered by their packages
+    ->withProviders([
+        // Default Laravel service providers are often auto-discovered.
+        // Explicitly registered providers:
+        App\Providers\AppServiceProvider::class,
+        App\Providers\AuthServiceProvider::class, // Correctly registered for Policies
+        App\Providers\VoltServiceProvider::class, // Correctly registered for Volt
+        // App\Providers\FortifyServiceProvider::class, // Fortify is usually auto-discovered
+        // App\Providers\JetstreamServiceProvider::class, // Jetstream is usually auto-discovered
+        // Add any other custom application service providers here.
     ])
+    // If you needed to customize facade aliases, it would be done with ->withFacades()
+    // Example:
+    // ->withFacades(true, [ // true to load default aliases, then add custom ones
+    // 'CustomFacade' => App\Facades\CustomFacade::class,
+    // ])
+    // Since your Redis issue is resolved when using Sail, and no problematic 'Redis' alias
+    // is visible here, this section is likely not needed for that.
     ->create();

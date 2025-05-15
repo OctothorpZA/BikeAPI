@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Facade; // Assuming this might be needed if aliases were here, but not strictly for the current content.
+
 return [
 
     /*
@@ -13,7 +15,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Dock & Ride'),
 
     /*
     |--------------------------------------------------------------------------
@@ -122,5 +124,11 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+
+    // providers and aliases arrays are typically here in older Laravel versions.
+    // In Laravel 11+, these are often handled in bootstrap/app.php or auto-discovered.
+    // If you were on an older version, you'd see something like:
+    // 'providers' => ServiceProvider::defaultProviders()->merge([/* ... */])->toArray(),
+    // 'aliases' => Facade::defaultAliases()->merge([/* ... */])->toArray(),
 
 ];
