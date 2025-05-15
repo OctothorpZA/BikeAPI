@@ -98,10 +98,14 @@
             "role": "System Architect"
         },
         {
-            "name": "JJ Adams",
+            "name": "Jodi Adams",
             "email": "info@willitearn.com",
             "homepage": "https://willitearn.com",
             "role": "Snr. Developer"
+        },
+        {
+            "name": "Mikhail Robertson",
+            "role": "BI Conceptualist"
         }
     ]
 }
