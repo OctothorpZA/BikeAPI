@@ -13,15 +13,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-    // User::factory(10)->create(); // Example: Keep if you want 10 generic users
+        // Call the Roles and Permissions Seeder first
+        $this->call(RolesPermissionsSeeder::class);
 
-        // Call your new RolesPermissionsSeeder
-        $this->call([
-            RolesPermissionsSeeder::class,
-            // You will add DemoDataSeeder::class here later
-        ]);
+        // Conditionally call the DemoDataSeeder for non-production environments
+        if (!app()->environment('production')) {
+            $this->command->info('Non-production environment detected, running DemoDataSeeder.');
+            $this->call(DemoDataSeeder::class);
+        } else {
+            $this->command->info('Production environment detected, skipping DemoDataSeeder.');
+        }
 
-        // Example: Create a specific user if needed after roles are set up
+        // You can call other seeders here if needed, for example:
+        // User::factory(10)->create(); // If you want some generic users
         // User::factory()->create([
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',

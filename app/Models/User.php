@@ -11,41 +11,9 @@ use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\HasTeams;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles; // Spatie's HasRoles trait
-use Lab404\Impersonate\Models\Impersonate; // <<<<<<<< 1. IMPORT THE TRAIT
+use Lab404\Impersonate\Models\Impersonate;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-// use Illuminate\Database\Eloquent\Relations\HasManyThrough; // Uncomment if used
 
-/**
- * App\Models\User
- *
- * (Your existing PHPDoc block - it's good, ensure it's up-to-date if you use IDE helper,
- * or add the following lines manually if not using an IDE helper to regenerate it)
- * @method bool canImpersonate()
- * @method bool canBeImpersonated(?User $impersonator = null)
- * @property-read bool $is_impersonating
- * @property-read \App\Models\Team|null $currentTeam
- * @property-read string $profile_photo_url
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Team> $ownedTeams
- * @property-read int|null $owned_teams_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Permission> $permissions
- * @property-read int|null $permissions_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Role> $roles
- * @property-read int|null $roles_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Team> $teams
- * @property-read int|null $teams_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
- * @property-read int|null $tokens_count
- * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
- * @property-read int|null $notifications_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PaxProfile> $paxProfiles
- * @property-read int|null $pax_profiles_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Rental> $processedRentals
- * @property-read int|null $processed_rentals_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PointOfInterest> $createdPointsOfInterest
- * @property-read int|null $created_points_of_interest_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PointOfInterest> $approvedPointsOfInterest
- * @property-read int|null $approved_points_of_interest_count
- */
 class User extends Authenticatable // Consider adding implements MustVerifyEmail if you enable email verification
 {
     use HasApiTokens;
@@ -56,7 +24,7 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
     use Notifiable;
     use TwoFactorAuthenticatable;
     use HasRoles;
-    use Impersonate; // <<<<<<<< 2. USE THE TRAIT
+    use Impersonate;
 
     /**
      * The attributes that are mass assignable.
@@ -67,6 +35,7 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'google_id', // <-- ADD THIS LINE
     ];
 
     /**
@@ -125,8 +94,6 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
 
     /**
      * Get the pax profiles associated with this user (if this user is a PWA customer).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PaxProfile, \App\Models\User>
      */
     public function paxProfiles(): HasMany
     {
@@ -135,8 +102,6 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
 
     /**
      * Get the rentals processed by this user (if this user is a staff member).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Rental, \App\Models\User>
      */
     public function processedRentals(): HasMany
     {
@@ -145,8 +110,6 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
 
     /**
      * Get the points of interest created by this user.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PointOfInterest, \App\Models\User>
      */
     public function createdPointsOfInterest(): HasMany
     {
@@ -155,8 +118,6 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
 
     /**
      * Get the points of interest approved by this user.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\PointOfInterest, \App\Models\User>
      */
     public function approvedPointsOfInterest(): HasMany
     {
@@ -165,35 +126,16 @@ class User extends Authenticatable // Consider adding implements MustVerifyEmail
 
     // --- Laravel Impersonate Methods ---
 
-    /**
-     * Define who can impersonate other users.
-     * Only users with the 'Super Admin' role can impersonate.
-     *
-     * @return bool
-     */
     public function canImpersonate(): bool
     {
         return $this->hasRole('Super Admin');
     }
 
-    /**
-     * Define who can be impersonated.
-     * Users with the 'Super Admin' role cannot be impersonated.
-     *
-     * @param \App\Models\User|null $impersonator The user attempting to impersonate.
-     * @return bool
-     */
     public function canBeImpersonated(?User $impersonator = null): bool
     {
-        // Prevent Super Admins from being impersonated
         if ($this->hasRole('Super Admin')) {
             return false;
         }
-
-        // Add any other logic here if needed, for example,
-        // if $impersonator is not null, you could check if $impersonator has specific permissions
-        // to impersonate this specific user or users with this user's role.
-        // For now, simply not being a Super Admin is enough to be impersonable by an authorized impersonator.
         return true;
     }
 }

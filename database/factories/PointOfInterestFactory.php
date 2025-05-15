@@ -26,22 +26,37 @@ class PointOfInterestFactory extends Factory
      */
     public function definition(): array
     {
-        $categories = ['Depot', 'Cafe', 'Landmark', 'Viewpoint', 'Repair Station', 'Restaurant', 'Museum', 'Park'];
-        $isDepot = $this->faker->boolean(20); // 20% chance this POI is a Depot
+        // Using constants from the PointOfInterest model for categories
+        $categories = [
+            PointOfInterest::CATEGORY_DEPOT, // Use constant
+            'Cafe', 'Landmark', 'Viewpoint', 'Repair Station', 'Restaurant', 'Museum', 'Park',
+            PointOfInterest::CATEGORY_STAFF_PICK, // Use constant
+            PointOfInterest::CATEGORY_GENERAL,    // Use constant
+        ];
+        // Remove duplicates if any were added manually and also exist as constants
+        $categories = array_unique($categories);
+
+
+        // In a general definition, creating a 'Depot' might be less common.
+        // The 'isDepot' state is specifically for creating Depot POIs.
+        // Let's assume default POIs created by this factory are not depots unless specified by a state.
+        $isDepotCategory = false; // Default to not being a depot
+        $selectedCategory = $this->faker->randomElement(array_filter($categories, fn($cat) => $cat !== PointOfInterest::CATEGORY_DEPOT));
+
 
         $teamId = null;
-        if ($isDepot) {
-            // If it's a Depot, ensure a Team exists or create one.
-            // For simplicity here, we'll try to get a random one or create one.
-            // In a seeder, you'd likely create a Team first, then its corresponding POI.
-            $team = Team::inRandomOrder()->first() ?? Team::factory()->create();
-            $teamId = $team->id;
-        }
+        // The following logic for creating a team if $isDepot is true is generally
+        // better handled by the specific seeder logic or the isDepot() state.
+        // For a generic POI, team_id is often null or set explicitly.
+        // if ($isDepotCategory) {
+        //     $team = Team::inRandomOrder()->first() ?? Team::factory()->create();
+        //     $teamId = $team->id;
+        // }
 
         return [
-            'team_id' => $teamId,
-            'name' => $isDepot ? ($team->name ?? 'Depot ' . $this->faker->citySuffix) : $this->faker->company . ' ' . $this->faker->companySuffix,
-            'category' => $isDepot ? 'Depot' : $this->faker->randomElement($categories),
+            'team_id' => $teamId, // Usually null for generic POIs, or set by a state like isDepot()
+            'name' => $this->faker->company,
+            'category' => $selectedCategory,
             'description' => $this->faker->optional()->paragraph(2),
             'latitude' => $this->faker->latitude(),
             'longitude' => $this->faker->longitude(),
@@ -53,32 +68,38 @@ class PointOfInterestFactory extends Factory
             'country_code' => $this->faker->countryCode(),
             'phone_number' => $this->faker->optional()->phoneNumber(),
             'website_url' => $this->faker->optional()->url(),
-            'primary_image_url' => $this->faker->optional(0.5)->imageUrl(640, 480, 'business'), // 50% chance of having an image
-            'is_approved' => $this->faker->boolean(80), // 80% are pre-approved for demo data
-            'is_active' => $this->faker->boolean(95),   // 95% are active
+            'primary_image_url' => $this->faker->optional(0.3)->imageUrl(640, 480, 'business'), // 30% chance
+            'is_approved' => $this->faker->boolean(70), // 70% are pre-approved for demo data
+            'is_active' => $this->faker->boolean(90),   // 90% are active
 
-            // Assign to a staff/supervisor user. Ensure UserFactory handles roles or select appropriate users in seeder.
-            'created_by_user_id' => User::factory(), // Or User::inRandomOrder()->first()?->id,
-            'approved_by_user_id' => $this->faker->boolean(70) ? (User::factory()) : null, // 70% of approved ones are approved by someone
+            // It's better to assign existing users in the seeder rather than creating new ones here.
+            // These will be overridden by the TeamFactory when creating Depot POIs.
+            // For other POIs, you'd pass these in the seeder: PointOfInterest::factory()->create(['created_by_user_id' => $someStaffUser->id])
+            'created_by_user_id' => null, // Default to null, set explicitly in seeder/other factories
+            'approved_by_user_id' => null, // Default to null, set explicitly in seeder/other factories
         ];
     }
 
     /**
      * Indicate that the point of interest is a Depot.
+     * This state is used by TeamFactory.
      *
-     * @param \App\Models\Team|null $team The team to associate as the depot.
+     * @param \App\Models\Team $team The team to associate as the depot.
      * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\PointOfInterest>
      */
-    public function isDepot(Team $team = null): Factory
+    public function isDepot(Team $team): Factory // Team should not be nullable if this state guarantees a Depot
     {
         return $this->state(function (array $attributes) use ($team) {
-            $team = $team ?? Team::factory()->create();
             return [
                 'team_id' => $team->id,
-                'name' => $team->name, // Use the team's name for the POI name
-                'category' => 'Depot',
+                'name' => $team->name . ' Depot', // Make it clear it's the Depot POI
+                'category' => PointOfInterest::CATEGORY_DEPOT, // Use constant
                 'is_approved' => true,
                 'is_active' => true,
+                'description' => $attributes['description'] ?? 'Official depot location for ' . $team->name . '.',
+                'latitude' => $attributes['latitude'] ?? $this->faker->latitude(), // Ensure these have values
+                'longitude' => $attributes['longitude'] ?? $this->faker->longitude(),
+                // created_by_user_id and approved_by_user_id are set by TeamFactory's configure method
             ];
         });
     }
@@ -91,9 +112,30 @@ class PointOfInterestFactory extends Factory
     public function approved(): Factory
     {
         return $this->state(function (array $attributes) {
+            // Attempt to get an existing Supervisor or Owner to be the approver
+            $approver = User::role(['Supervisor', 'Owner', 'Super Admin'])->inRandomOrder()->first();
             return [
                 'is_approved' => true,
-                'approved_by_user_id' => $attributes['approved_by_user_id'] ?? User::factory(), // Ensure an approver if not set
+                'approved_by_user_id' => $attributes['approved_by_user_id'] ?? $approver?->id, // Use existing admin/supervisor if possible
+            ];
+        });
+    }
+
+     /**
+     * Indicate that the point of interest is a Staff Pick.
+     *
+     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\PointOfInterest>
+     */
+    public function staffPick(): Factory
+    {
+        // Attempt to get an existing Staff member to be the creator
+        $creator = User::role('Staff')->inRandomOrder()->first();
+        return $this->state(function (array $attributes) use ($creator) {
+            return [
+                'category' => PointOfInterest::CATEGORY_STAFF_PICK,
+                'created_by_user_id' => $attributes['created_by_user_id'] ?? $creator?->id,
+                'is_approved' => false, // Staff picks start as unapproved by default
+                'is_active' => true,    // But they can be active to be reviewed
             ];
         });
     }

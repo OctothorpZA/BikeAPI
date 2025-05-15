@@ -42,15 +42,10 @@ class TeamPolicy
      */
     public function view(User $user, Team $team): bool
     {
-        // User can view team details if they are a member of the team.
-        // This is Jetstream's default and generally makes sense.
-        // An Owner might also view any team they own, even if not explicitly a "member" with a specific role.
+        // User can view team details if they are a member of the team or own the team.
         if ($user->ownsTeam($team) || $user->belongsToTeam($team)) {
             return true;
         }
-        // If an Owner should see all Depots regardless of direct membership (e.g. for an overview)
-        // this might be true, but typically viewing details implies some relationship.
-        // Let's stick to Jetstream's default + owner check for now.
         return false;
     }
 
@@ -72,19 +67,18 @@ class TeamPolicy
         if ($user->ownsTeam($team)) {
             return true;
         }
-        // Supervisors can update details of the Depot they are assigned to manage.
-        // This assumes a Supervisor is a member of the team with a specific role (e.g., 'supervisor')
-        // or their currentTeam is this team.
+        // Supervisors can update details of the Depot they are assigned to manage (their current team).
         if ($user->hasRole('Supervisor') && $user->belongsToTeam($team) && $user->currentTeam && $user->currentTeam->id === $team->id) {
-            // Further check: Ensure they have a Jetstream team role that permits updates (e.g., 'admin' or 'editor' for the team)
-            // return $user->hasTeamPermission($team, 'update'); // Jetstream's team permission check
-            return true; // Simplified for now: if they are a supervisor and it's their current team.
+            // Optional: Check for a specific Jetstream team permission if you use them granularly
+            // e.g., return $user->hasTeamPermission($team, 'team:update');
+            return true;
         }
         return false;
     }
 
     /**
      * Determine whether the user can add team members to the Team (Depot).
+     * The $user is the one performing the action.
      */
     public function addTeamMember(User $user, Team $team): bool
     {
@@ -93,18 +87,19 @@ class TeamPolicy
             return true;
         }
         // Supervisors can add 'Staff' members to their current Depot.
+        // The policy determines if they *can* add; the controller/UI would restrict *who* (e.g. only users with 'Staff' Spatie role)
+        // and *what Jetstream team role* is assigned.
         if ($user->hasRole('Supervisor') && $user->belongsToTeam($team) && $user->currentTeam && $user->currentTeam->id === $team->id) {
-            // They should only be able to add users with the 'Staff' Spatie role,
-            // and assign them a 'member' or 'staff' Jetstream team role.
-            // The policy checks if they *can* add, controller validates *who* and *what role*.
-            // return $user->hasTeamPermission($team, 'addTeamMember');
-             return true; // Simplified for now
+            // Optional: Check for a specific Jetstream team permission
+            // e.g., return $user->hasTeamPermission($team, 'member:add');
+            return true;
         }
         return false;
     }
 
     /**
      * Determine whether the user can update team member permissions (Jetstream team roles) in the Team (Depot).
+     * The $user is the one performing the action.
      */
     public function updateTeamMember(User $user, Team $team): bool
     {
@@ -113,18 +108,21 @@ class TeamPolicy
             return true;
         }
         // Supervisors might update roles of 'Staff' members in their current Depot.
-        // (e.g., from a 'viewer' Jetstream role to an 'editor' Jetstream role if you have such distinctions).
         // They should not be able to change an Owner's role or another Supervisor's role.
+        // This policy method determines if they *can generally* update roles.
+        // The actual UI/controller should restrict *which roles* can be assigned to *which users*.
         if ($user->hasRole('Supervisor') && $user->belongsToTeam($team) && $user->currentTeam && $user->currentTeam->id === $team->id) {
-            // Policy checks if they *can* update, controller validates *whose role* and *to what*.
-            // return $user->hasTeamPermission($team, 'updateTeamMember');
-            return true; // Simplified for now
+            // Optional: Check for a specific Jetstream team permission
+            // e.g., return $user->hasTeamPermission($team, 'member:update-role');
+            return true;
         }
         return false;
     }
 
     /**
      * Determine whether the user can remove team members from the Team (Depot).
+     * The $user is the one performing the action.
+     * The $userToRemove is the one being removed.
      */
     public function removeTeamMember(User $user, Team $team, User $userToRemove): bool
     {
@@ -132,15 +130,17 @@ class TeamPolicy
         if ($user->ownsTeam($team) && $user->id !== $userToRemove->id) {
             return true;
         }
+
         // Supervisors can remove 'Staff' members from their current Depot.
-        // They should not be able to remove the Owner or other Supervisors.
+        // They should not be able to remove the Owner, other Supervisors, or themselves.
         if ($user->hasRole('Supervisor') &&
-            $user->belongsToTeam($team) &&
-            $user->currentTeam && $user->currentTeam->id === $team->id &&
-            $userToRemove->hasRole('Staff') && // Can only remove Staff
+            $user->belongsToTeam($team) && // Supervisor must belong to the team
+            $user->currentTeam && $user->currentTeam->id === $team->id && // Must be their current team
+            $userToRemove->hasRole('Staff') && // Can only remove users with the 'Staff' Spatie role
             $user->id !== $userToRemove->id) { // Cannot remove self
-            // return $user->hasTeamPermission($team, 'removeTeamMember');
-            return true; // Simplified for now
+            // Optional: Check for a specific Jetstream team permission
+            // e.g., return $user->hasTeamPermission($team, 'member:remove');
+            return true;
         }
         return false;
     }
@@ -156,17 +156,22 @@ class TeamPolicy
     }
 
     /**
-     * Determine whether the user can manage team (Depot) settings.
-     * This could be a general permission for various settings pages.
+     * Determine whether the user can restore the model. (If using SoftDeletes on Teams)
      */
-    // public function manageSettings(User $user, Team $team): bool
-    // {
-    //     if ($user->ownsTeam($team)) {
-    //         return true;
-    //     }
-    //     if ($user->hasRole('Supervisor') && $user->belongsToTeam($team) && $user->currentTeam && $user->currentTeam->id === $team->id) {
-    //         return $user->hasTeamPermission($team, 'manage:settings'); // Example Jetstream permission
-    //     }
-    //     return false;
-    // }
+    public function restore(User $user, Team $team): bool
+    {
+        // Only the team owner can restore the team.
+        // Super Admin can also restore (handled by before()).
+        return $user->ownsTeam($team);
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model. (If using SoftDeletes on Teams)
+     */
+    public function forceDelete(User $user, Team $team): bool
+    {
+        // Highly destructive. Only Super Admin (via before()) or perhaps team owner with extreme caution.
+        // For now, let's restrict to SA. If owner needs it, it can be $user->ownsTeam($team);
+        return false;
+    }
 }

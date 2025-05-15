@@ -1,0 +1,41 @@
+### TODO: Laravel Socialite (Google SSO) Setup Checklist
+
+**Phase 1: Initial Setup (Mostly Done)**
+* [x] Install Laravel Socialite package.
+* [x] Configure Google Cloud Console OAuth Client ID & Secret.
+* [x] Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` to `.env`.
+    * **Action Item**: Double-check `GOOGLE_REDIRECT_URI`. Your `.env` has two entries. The active one should be `http://localhost/auth/google/callback` if testing with Sail's default, or `http://BikeAPI.octothorp.co.za/auth/google/callback` if `BikeAPI.octothorp.co.za` correctly resolves to your local setup and is registered in Google Console. Ensure it does NOT include `https://localhost` unless you have SSL configured for `localhost`. **Remove the duplicate/incorrect entry from `.env`.**
+* [x] Add Google service configuration to `config/services.php`.
+* [x] Define Socialite routes in `routes/web.php` (redirect and callback).
+* [x] Create `SocialiteLoginController.php` and implement `redirectToProvider` and `handleProviderCallback` methods.
+
+**Phase 2: User Model & Logic Refinements**
+* [ ] **Migration for `google_id`**:
+    * [x] Create migration `add_google_id_to_users_table`.
+    * [x] Update migration file with `up()` and `down()` methods (as provided above).
+    * [ ] Run `./vendor/bin/sail artisan migrate`.
+* [ ] **Update `User` Model (`app/Models/User.php`)**:
+    * [ ] Add `'google_id'` to the `$fillable` array.
+* [ ] **Update `SocialiteLoginController.php`**:
+    * [ ] Uncomment and adapt the lines to save `$socialUser->getId()` to the user's `google_id` field (e.g., `'google_id' => $socialUser->getId(),`).
+    * [ ] Consider if you want to update the user's name or avatar from Google if they already exist (`if ($user)` block).
+    * [ ] **Team Assignment for New SSO Users**:
+        * Decide on the strategy (assign to default "Unassigned" team, no team, or specific default team).
+        * Implement the chosen logic in the `handleProviderCallback` method where a new user is created. This might involve querying for a `Team` model and attaching the user.
+    * [ ] **Logging**: Uncomment and use `Log::error(...)` for better debugging of Socialite exceptions.
+
+**Phase 3: UI & Testing**
+* [ ] **Login Link**: Add "Login with Google" button/link to your staff login Blade view (e.g., `resources/views/auth/login.blade.php`).
+* [ ] **Thorough Testing**:
+    * Test with a brand new user account via Google.
+    * Test with an existing user account (created via email/password) logging in via Google for the first time (ensure their email matches).
+    * Test error scenarios (e.g., user denies access on Google's page, Google returns an error).
+    * Verify user is assigned the correct default role ('Staff').
+    * Verify team assignment logic (once implemented).
+* [ ] **Styling**: Style the "Login with Google" button appropriately.
+
+**Phase 4: Advanced Considerations (Future)**
+* [ ] **Linking Accounts**: If a user is already logged in via email/password, provide an option in their profile to "Connect Google Account". This would involve a similar Socialite flow but associate the `google_id` with the already authenticated user.
+* [ ] **Preferred Recovery Email**: Plan and implement the `preferred_recovery_email` feature if staff can have both a company email and a personal/SSO email.
+* [ ] **PWA Socialite**: Plan the API endpoints and flow for PWA users to use Socialite (this is a separate, later task as per blueprint).
+* [ ] **Support for Multiple Providers**: If you add more SSO providers (e.g., Microsoft), update the validation in `SocialiteLoginController` and add their configurations.
