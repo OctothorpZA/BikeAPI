@@ -8,10 +8,11 @@ use Laravel\Jetstream\Events\TeamDeleted;
 use Laravel\Jetstream\Events\TeamUpdated;
 use Laravel\Jetstream\Team as JetstreamTeam;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne; // For the POI relationship if a Team is one POI
-use App\Models\User; // For owner relationship
-use Laravel\Jetstream\Jetstream; // For userModel
-use Laravel\Jetstream\TeamInvitation; // For teamInvitations relationship
+use Illuminate\Database\Eloquent\Relations\HasOne;    // For the POI relationship
+use App\Models\PointOfInterest;                     // Import PointOfInterest
+use Laravel\Jetstream\Jetstream;                    // For userModel
+// TeamInvitation is usually handled by Jetstream's base Team model, but explicit import is fine if needed.
+// use Laravel\Jetstream\TeamInvitation;
 
 /**
  * App\Models\Team
@@ -33,7 +34,8 @@ use Laravel\Jetstream\TeamInvitation; // For teamInvitations relationship
  * @property-read int|null $rentals_started_here_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Rental> $rentalsEndedHere
  * @property-read int|null $rentals_ended_here_count
- * @property-read \App\Models\PointOfInterest|null $pointOfInterest
+ * @property-read \App\Models\PointOfInterest|null $pointOfInterest // Your existing generic POI link
+ * @property-read \App\Models\PointOfInterest|null $depotPoi // New specific POI link for the Depot itself
  * @method static \Database\Factories\TeamFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder|Team newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|Team newQuery()
@@ -59,7 +61,7 @@ class Team extends JetstreamTeam
     protected $fillable = [
         'name',
         'personal_team',
-        'user_id', // Ensure user_id is fillable if you create teams programmatically assigning an owner
+        'user_id', // Ensure user_id is fillable
     ];
 
     /**
@@ -87,9 +89,6 @@ class Team extends JetstreamTeam
 
     /**
      * Get the bikes associated with this team (Depot).
-     * A Depot has many bikes.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Bike, \App\Models\Team>
      */
     public function bikes(): HasMany
     {
@@ -98,8 +97,6 @@ class Team extends JetstreamTeam
 
     /**
      * Get the rentals that started at this team (Depot).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Rental, \App\Models\Team>
      */
     public function rentalsStartedHere(): HasMany
     {
@@ -108,8 +105,6 @@ class Team extends JetstreamTeam
 
     /**
      * Get the rentals that ended at this team (Depot).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Rental, \App\Models\Team>
      */
     public function rentalsEndedHere(): HasMany
     {
@@ -117,27 +112,33 @@ class Team extends JetstreamTeam
     }
 
     /**
-     * Get the Point of Interest record for this team (Depot).
-     * A Depot is a type of Point of Interest.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne<\App\Models\PointOfInterest, \App\Models\Team>
+     * Get the generic Point of Interest record for this team (if any).
+     * This was your original relationship.
      */
     public function pointOfInterest(): HasOne
     {
-        return $this->hasOne(PointOfInterest::class);
+        // This assumes 'team_id' is the foreign key in 'points_of_interest' table
+        // and there's no specific category filter for this generic relationship.
+        return $this->hasOne(PointOfInterest::class, 'team_id');
     }
 
-    // Jetstream's default relationships are inherited from JetstreamTeam:
-    // - owner(): BelongsTo (User that owns the team)
-    // - users(): BelongsToMany (Users that are members of the team)
-    // - teamInvitations(): HasMany (Invitations for this team)
-    // We ensure PHPDocs are clear for these if needed for PHPStan.
+    /**
+     * Get the specific Point of Interest record that IS this Depot.
+     * A Team (Depot) should have one PointOfInterest record where the category is 'Depot'.
+     */
+    public function depotPoi(): HasOne
+    {
+        return $this->hasOne(PointOfInterest::class, 'team_id') // Foreign key in points_of_interest table
+                    ->where('category', PointOfInterest::CATEGORY_DEPOT); // Filter by category
+    }
+
+
+    // --- Jetstream Inherited/Overridden Relationships for Clarity ---
+    // Your existing owner(), users(), teamInvitations() methods are good.
+    // I'm including them as they were in your uploaded file for completeness.
 
     /**
      * Get the owner of the team.
-     * Overriding to ensure precise PHPDoc for PHPStan if needed.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, \App\Models\Team>
      */
     public function owner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
@@ -146,9 +147,6 @@ class Team extends JetstreamTeam
 
     /**
      * Get all of the users that belong to the team.
-     * Overriding to ensure precise PHPDoc for PHPStan if needed.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\User>
      */
     public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
@@ -160,9 +158,6 @@ class Team extends JetstreamTeam
 
     /**
      * Get all of the pending user invitations for the team.
-     * Overriding to ensure precise PHPDoc for PHPStan if needed.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<\Laravel\Jetstream\TeamInvitation, \App\Models\Team>
      */
     public function teamInvitations(): HasMany
     {

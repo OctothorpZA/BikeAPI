@@ -36,7 +36,7 @@ class UserFactory extends Factory
             'two_factor_recovery_codes' => null,
             'remember_token' => Str::random(10),
             'profile_photo_path' => null,
-            // current_team_id will be set via the configure() method or withPersonalTeam()
+            'google_id' => null, // Default google_id to null
         ];
     }
 
@@ -52,7 +52,6 @@ class UserFactory extends Factory
 
     /**
      * Indicate that the user should have a personal team.
-     * This is called by the configure method by default.
      */
     public function withPersonalTeam(?callable $callback = null): static
     {
@@ -63,7 +62,6 @@ class UserFactory extends Factory
         return $this->has(
             Team::factory()
                 ->state(function (array $attributes, User $user) {
-                    // This creates the personal team and sets its user_id to this user.
                     return [
                         'name' => $user->name.'\'s Team',
                         'user_id' => $user->id,
@@ -71,7 +69,7 @@ class UserFactory extends Factory
                     ];
                 })
                 ->when(is_callable($callback), $callback),
-            'ownedTeams' // This is the relationship Jetstream uses for teams owned by the user
+            'ownedTeams'
         );
     }
 
@@ -82,7 +80,6 @@ class UserFactory extends Factory
     {
         return $this->afterCreating(function (User $user) {
             if (Features::hasTeamFeatures()) {
-                // Ensure a personal team exists or create one
                 $personalTeam = $user->personalTeam();
                 if (!$personalTeam) {
                     $personalTeam = Team::forceCreate([
@@ -91,14 +88,11 @@ class UserFactory extends Factory
                         'personal_team' => true,
                     ]);
                 }
-                // Switch to the personal team and save current_team_id
                 $user->switchTeam($personalTeam);
             }
 
-            // Assign a default role if no specific role state was used during factory call.
-            // This ensures every user created by the factory (without a specific role state) gets a default role.
+            // Assign a default 'Staff' role ONLY IF no other roles have been assigned.
             if ($user->roles->isEmpty()) {
-                // Ensure the 'Staff' role exists (create if not, though seeder is better for this)
                 $defaultRole = Role::firstOrCreate(['name' => 'Staff', 'guard_name' => 'web']);
                 $user->assignRole($defaultRole);
             }
@@ -111,8 +105,7 @@ class UserFactory extends Factory
     public function superAdmin(): static
     {
         return $this->afterCreating(function (User $user) {
-            $role = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
-            $user->assignRole($role);
+            $user->syncRoles(['Super Admin']);
         });
     }
 
@@ -122,8 +115,7 @@ class UserFactory extends Factory
     public function owner(): static
     {
         return $this->afterCreating(function (User $user) {
-            $role = Role::firstOrCreate(['name' => 'Owner', 'guard_name' => 'web']);
-            $user->assignRole($role);
+            $user->syncRoles(['Owner']);
         });
     }
 
@@ -133,8 +125,7 @@ class UserFactory extends Factory
     public function supervisor(): static
     {
         return $this->afterCreating(function (User $user) {
-            $role = Role::firstOrCreate(['name' => 'Supervisor', 'guard_name' => 'web']);
-            $user->assignRole($role);
+            $user->syncRoles(['Supervisor']);
         });
     }
 
@@ -144,31 +135,19 @@ class UserFactory extends Factory
     public function staff(): static
     {
         return $this->afterCreating(function (User $user) {
-            $role = Role::firstOrCreate(['name' => 'Staff', 'guard_name' => 'web']);
-            $user->assignRole($role);
+            $user->syncRoles(['Staff']);
         });
     }
 
     /**
      * Indicate that the user is a PWA customer.
-     * This state might not assign a Spatie role, or assign a specific 'PWA User' role.
+     * Assigns the 'PWA User' role and ensures no other staff roles.
      */
     public function pwaUser(): static
     {
-        return $this->state(function (array $attributes) {
-            // PWA users might not need a personal Jetstream team by default,
-            // or their team setup might be different.
-            // For now, this state doesn't modify team creation.
-            return [];
-        })->afterCreating(function(User $user){
-            // If you have a specific 'PWA User' role:
-            // $role = Role::firstOrCreate(['name' => 'PWA User', 'guard_name' => 'web']);
-            // $user->assignRole($role);
-
-            // If PWA users don't get a default Spatie role via the factory,
-            // ensure the default role assignment in configure() is appropriate or conditional.
-            // For now, the configure() method assigns 'Staff' if no other role is present.
-            // You might want to adjust that if creating PWA users directly with the factory.
+        return $this->afterCreating(function(User $user){
+            $role = Role::firstOrCreate(['name' => 'PWA User', 'guard_name' => 'web']);
+            $user->syncRoles([$role->name]); // Use syncRoles to ensure ONLY PWA User role
         });
     }
 }

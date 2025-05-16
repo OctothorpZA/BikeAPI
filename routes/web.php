@@ -2,17 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
-use App\Http\Controllers\SocialiteLoginController; // For Socialite
+use App\Http\Controllers\SocialiteLoginController; // Staff SSO
+use App\Http\Controllers\Api\V1\PwaSocialiteController; // PWA SSO <-- NEW IMPORT
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
 */
 
 Route::get('/', function () {
@@ -20,44 +16,48 @@ Route::get('/', function () {
 })->name('home');
 
 // Route 1 (Original simpler dashboard route)
-Route::view('dashboard', 'dashboard') // Path is /dashboard
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard.simple'); // Renamed to avoid conflict
+// Route::view('dashboard', 'dashboard')
+//     ->middleware(['auth', 'verified'])
+//     ->name('dashboard.simple'); // Renamed to avoid conflict
 
 Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', 'settings/profile'); // Redirect /settings to /settings/profile
-
+    Route::redirect('settings', 'settings/profile');
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
 // --- Staff Socialite SSO Routes ---
-// These routes handle the redirection to the OAuth provider and the callback.
-Route::prefix('auth')->name('auth.social.')->group(function () {
+Route::prefix('auth/staff')->name('auth.staff.social.')->group(function () { // Added 'staff' to prefix and name
     Route::get('/{provider}/redirect', [SocialiteLoginController::class, 'redirectToProvider'])
         ->where('provider', '[a-zA-Z0-9_-]+')
         ->name('redirect');
-
     Route::get('/{provider}/callback', [SocialiteLoginController::class, 'handleProviderCallback'])
         ->where('provider', '[a-zA-Z0-9_-]+')
         ->name('callback');
 });
-// Example of a login link you might put in your staff login view (e.g., in resources/views/auth/login.blade.php):
-// <a href="{{ route('auth.social.redirect', 'google') }}">Login with Google</a>
 
-// Fortify/Jetstream authentication routes (login, register, password reset etc.)
-require __DIR__.'/auth.php';
+// --- PWA User Socialite SSO Routes (Now in web.php for session support) ---
+Route::prefix('auth/pwa')->name('auth.pwa.social.')->group(function () { // New prefix for PWA
+    Route::get('/{provider}/redirect', [PwaSocialiteController::class, 'redirectToProvider'])
+        ->where('provider', '[a-zA-Z0-9_-]+')
+        ->name('redirect'); // e.g., route('auth.pwa.social.redirect', 'google')
+
+    Route::get('/{provider}/callback', [PwaSocialiteController::class, 'handleProviderCallback'])
+        ->where('provider', '[a-zA-Z0-9_-]+')
+        ->name('callback'); // e.g., route('auth.pwa.social.callback', 'google')
+});
+
+
+require __DIR__.'/auth.php'; // Fortify routes
 
 // Route 2 (Jetstream's default dashboard route group)
 Route::middleware([
-    'auth:sanctum', // Ensures user is authenticated for web routes via Sanctum if SPA, or session
-    config('jetstream.auth_session'), // Standard Jetstream session middleware
-    'verified', // Ensures email is verified if that feature is enabled
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () { // Path is also /dashboard
+    Route::get('/dashboard', function () {
         return view('dashboard');
-    })->name('dashboard'); // This is typically Jetstream's primary dashboard route name
+    })->name('dashboard');
 });
-
-// If you have other Volt routes or application-specific routes, they can go here.
