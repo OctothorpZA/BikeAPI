@@ -17,7 +17,7 @@ use App\Policies\UserPolicy;
 use App\Models\Team; // Jetstream Team model
 use App\Policies\TeamPolicy; // Jetstream's default TeamPolicy or your customized one
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-use Illuminate\Support\Facades\Gate; // Uncomment if you use Gate directly for non-model specific permissions
+use Illuminate\Support\Facades\Gate; // Ensure Gate is imported
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -27,14 +27,13 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy', // Default Laravel example
         Bike::class => BikePolicy::class,
         PaxProfile::class => PaxProfilePolicy::class,
         Rental::class => RentalPolicy::class,
         PointOfInterest::class => PointOfInterestPolicy::class,
         ShipDeparture::class => ShipDeparturePolicy::class,
         User::class => UserPolicy::class,
-        Team::class => TeamPolicy::class, // Registering Jetstream's TeamPolicy (ensure it's in App\Policies)
+        Team::class => TeamPolicy::class,
     ];
 
     /**
@@ -44,16 +43,28 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Example of defining a Gate for a specific ability (non-model related)
-        // Gate::define('view-admin-dashboard', function (User $user) {
-        //     return $user->hasRole('Super Admin') || $user->hasRole('Owner');
-        // });
+        // Gate for accessing the Depot Supervisor Management page
+        // This checks if the user has the Spatie permission 'assign depot staff'.
+        Gate::define('access-depot-supervisor-manager', function (User $user) {
+            return $user->hasPermissionTo('assign depot staff', 'web');
+        });
 
-        // Implicitly grant "Super Admin" all permissions.
-        // This is often done in the `before` method of individual policies,
-        // but can also be done globally here if preferred, though policy-level `before` is more common.
-        // Gate::before(function ($user, $ability) {
-        //     return $user->hasRole('Super Admin') ? true : null;
+        // Gate for accessing the (upcoming) User Spatie Role Management page
+        // This checks if the user has the Spatie permission 'assign spatie roles'.
+        Gate::define('access-user-spatie-role-manager', function(User $user) {
+            return $user->hasPermissionTo('assign spatie roles', 'web');
+        });
+
+        // The before() method in your individual policies (like TeamPolicy, UserPolicy)
+        // is the correct place to handle Super Admin overrides for those specific models.
+        // A global Gate::before() can be powerful but sometimes too broad.
+        // Example:
+        // Gate::before(function (User $user, string $ability) {
+        //     if ($user->hasRole('Super Admin')) {
+        //         return true;
+        //     }
+        //     return null;
         // });
+        // Your policies already have `before` methods, which is good.
     }
 }
