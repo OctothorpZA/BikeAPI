@@ -5,7 +5,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Laravel\Jetstream\Jetstream; // Keep this for Jetstream::findRole()
+use Laravel\Jetstream\Jetstream; // Keep this for Jetstream::findRole() if used in Blade
 use Illuminate\Support\Collection;
 use App\Actions\Jetstream\UpdateTeamMemberRole;
 use App\Actions\Jetstream\RemoveTeamMember;
@@ -19,7 +19,7 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
     public array $availableRoles; // Jetstream roles (key => name)
 
     public string $inviteEmail = '';
-    // inviteRole is hardcoded to 'admin' for supervisors in the inviteSupervisor method
+    public string $inviteRole = 'admin'; // Default to 'admin' for supervisor
 
     public function mount(): void
     {
@@ -29,14 +29,10 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
 
         $user = Auth::user();
         if ($user->hasRole('Super Admin')) {
-            // Super Admins should see all *operational* depots, not personal teams.
             $this->ownedDepots = Team::where('personal_team', false) // Filter out personal teams
                                     ->orderBy('name')
                                     ->get();
         } elseif ($user->hasRole('Owner')) {
-            // Owners should see operational depots they own.
-            // ownedTeams() should ideally return teams where user_id (owner_id) matches.
-            // We also need to ensure these are not personal_teams.
             $this->ownedDepots = $user->ownedTeams()
                                     ->where('personal_team', false) // Filter out personal teams
                                     ->orderBy('name')
@@ -45,28 +41,37 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
             $this->ownedDepots = collect();
         }
 
+        // Pre-filter in selectDepot to ensure only non-personal teams are processed further
+        // if ($this->ownedDepots->isNotEmpty()) {
+        //    $this->selectDepot($this->ownedDepots->first()->id); // Autoload first depot
+        // }
         $this->depotMembers = collect();
 
         // Correctly fetch Jetstream roles from the configuration
-        $jetstreamRoles = config('jetstream.roles', []);
-        $this->availableRoles = collect($jetstreamRoles)->pluck('name', 'key')->all();
+        // The config('jetstream.roles') returns an array of role definitions.
+        // Each definition is an array with 'key', 'name', 'description', 'permissions'.
+        $jetstreamRolesConfig = config('jetstream.roles', []);
+        $this->availableRoles = collect($jetstreamRolesConfig)->mapWithKeys(function ($role) {
+            return [$role['key'] => $role['name']]; // Creates an associative array: 'key' => 'Name'
+        })->all();
     }
 
     public function selectDepot(int $depotId): void
     {
-        // Ensure the selected depot is an operational depot from the filtered list
         $depot = $this->ownedDepots->firstWhere('id', $depotId);
 
-        if ($depot && !$depot->personal_team) { // Double check it's not a personal team
-            Gate::authorize('update', $depot); // From TeamPolicy
+        // Ensure the selected depot is an operational (non-personal) team from the filtered list
+        if ($depot && !$depot->personal_team) {
+            Gate::authorize('update', $depot); // Uses TeamPolicy's update method
+
             $this->selectedDepot = $depot;
             $this->loadDepotMembers();
-            $this->inviteEmail = '';
+            $this->inviteEmail = ''; // Reset invite form
         } else {
             $this->selectedDepot = null;
             $this->depotMembers = collect();
-            if ($depotId && !$depot) { // If an ID was passed but not found in ownedDepots
-                 session()->flash('error', 'Selected depot is not valid or you are not authorized.');
+            if ($depotId && !$depot) { // If an ID was passed but not found in ownedDepots (or was personal)
+                 session()->flash('error', 'Selected depot is not valid or you are not authorized for it.');
             }
         }
     }
@@ -123,6 +128,7 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
 
         $this->validate([
             'inviteEmail' => ['required', 'email'],
+            // 'inviteRole' is hardcoded to 'admin' below
         ]);
 
         app(InviteTeamMember::class)->invite(
@@ -204,6 +210,8 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
                                                    class="mt-1 block w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                                             @error('inviteEmail') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                                         </div>
+                                        {{-- Role is fixed to 'admin' for supervisors in this context --}}
+                                        {{-- <input type="hidden" wire:model="inviteRole" value="admin"> --}}
                                         <button wire:click="inviteSupervisor" wire:loading.attr="disabled"
                                                 class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 disabled:opacity-25 transition dark:bg-blue-500 dark:hover:bg-blue-400">
                                             @svg('heroicon-o-user-plus', 'w-4 h-4 mr-2')
@@ -268,6 +276,7 @@ new #[Layout('layouts.staff-app')] #[Title('Manage Depot Supervisors')] class ex
                                     @foreach($selectedDepot->teamInvitations as $invitation)
                                     <li class="text-sm text-gray-600 dark:text-gray-400 py-1">
                                         {{ $invitation->email }} (as {{ $this->availableRoles[$invitation->role] ?? $invitation->role }})
+                                        {{-- TODO: Add cancel invitation button if needed --}}
                                     </li>
                                     @endforeach
                                 </ul>
